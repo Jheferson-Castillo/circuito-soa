@@ -46,6 +46,8 @@ public class SecurityConfig {
                             "/swagger-ui/**",
                             "/swagger-ui.html",
                             "/v3/api-docs/**",
+                            // Observabilidad: Actuator (health/prometheus) lo lee Prometheus sin token
+                            "/actuator/**",
                             // Handshake WebSocket / SockJS (notificaciones del dashboard)
                             "/ws/**"
                     ).permitAll();

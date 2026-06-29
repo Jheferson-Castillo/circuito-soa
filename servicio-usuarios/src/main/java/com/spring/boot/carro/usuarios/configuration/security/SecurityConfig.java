@@ -2,6 +2,7 @@ package com.spring.boot.carro.usuarios.configuration.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -29,6 +30,8 @@ import java.util.List;
  */
 @Configuration
 @EnableWebSecurity
+// Habilita @PreAuthorize/@PostAuthorize en los controllers (p. ej. cambiar rol solo ADMIN).
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
@@ -46,6 +49,8 @@ public class SecurityConfig {
                             "/swagger-ui/**",
                             "/swagger-ui.html",
                             "/v3/api-docs/**",
+                            // Observabilidad: Actuator (health/prometheus) lo lee Prometheus sin token
+                            "/actuator/**",
                             // Endpoints internos de saldo (los consumen Pagos/Reservas via el bus)
                             "/api/v1/usuarios/*/saldo",
                             "/api/v1/usuarios/*/saldo/**"

@@ -19,8 +19,8 @@ public interface UsuarioMapper {
     @Mapping(target = "fechaRegistro", ignore = true)
     // El saldo de minutos siempre arranca en 0 al crear el usuario.
     @Mapping(target = "saldoMinutos", constant = "0")
-    // Rol por defecto para altas via CRUD; el password lo gestiona el login/seeder, no este DTO.
-    @Mapping(target = "rol", constant = "ALUMNO")
+    // El rol (default ALUMNO) y el password (BCrypt) los fija UsuarioService.crear, no el mapper.
+    @Mapping(target = "rol", ignore = true)
     @Mapping(target = "password", ignore = true)
 //    @Mapping(target = "fechaRegistro", expression = "java(java.time.LocalDateTime.now())")
     Usuario toEntity(UsuarioRequestDTO usuarioRequestDTO);

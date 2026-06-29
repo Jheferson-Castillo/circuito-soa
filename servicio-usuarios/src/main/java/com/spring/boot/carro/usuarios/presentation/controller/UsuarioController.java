@@ -1,5 +1,6 @@
 package com.spring.boot.carro.usuarios.presentation.controller;
 
+import com.spring.boot.carro.usuarios.presentation.dto.usuario.CambiarRolRequestDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.CargarSaldoRequestDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.SaldoResponseDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioRequestDTO;
@@ -8,6 +9,7 @@ import com.spring.boot.carro.usuarios.service.interfaces.IUsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -35,6 +37,14 @@ public class UsuarioController {
     @GetMapping("/{id}")
     public ResponseEntity<UsuarioResponseDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(usuarioService.obtenerPorId(id));
+    }
+
+    // Cambiar el rol de un usuario. Solo un ADMIN puede hacerlo (@PreAuthorize -> 403 si no lo es).
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/rol")
+    public ResponseEntity<UsuarioResponseDTO> cambiarRol(@PathVariable Long id,
+                                                         @RequestBody @Valid CambiarRolRequestDTO request) {
+        return ResponseEntity.ok(usuarioService.cambiarRol(id, request.rol()));
     }
 
     @DeleteMapping("/{id}")

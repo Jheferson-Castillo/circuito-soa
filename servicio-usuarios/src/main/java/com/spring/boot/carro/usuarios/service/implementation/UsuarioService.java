@@ -1,6 +1,7 @@
 package com.spring.boot.carro.usuarios.service.implementation;
 
 import com.spring.boot.carro.usuarios.persistence.entity.Usuario;
+import com.spring.boot.carro.usuarios.persistence.enums.RolEnum;
 import com.spring.boot.carro.usuarios.persistence.repository.UsuarioRepository;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.SaldoResponseDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioRequestDTO;
@@ -10,6 +11,7 @@ import com.spring.boot.carro.usuarios.service.exception.NotFoundException;
 import com.spring.boot.carro.usuarios.service.interfaces.IUsuarioService;
 import com.spring.boot.carro.usuarios.util.mapper.UsuarioMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,9 @@ public class UsuarioService implements IUsuarioService {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     private final String NOT_FOUND_MSG = "Usuario no encontrado con el id: ";
 
@@ -51,8 +56,18 @@ public class UsuarioService implements IUsuarioService {
                             + usuarioRequestDTO.getNumeroDocumento());
                 });
 
+        // El password es obligatorio al CREAR (en el DTO solo validamos la longitud minima
+        // porque ese mismo DTO se reutiliza en el PUT, donde el password es opcional).
+        if (usuarioRequestDTO.getPassword() == null || usuarioRequestDTO.getPassword().isBlank()) {
+            throw new BusinessException("La contraseña es obligatoria al crear el usuario");
+        }
+
         Usuario entity = usuarioMapper.toEntity(usuarioRequestDTO);
         entity.setFechaRegistro(LocalDateTime.now());
+        // Rol elegido o ALUMNO por defecto si no se envió.
+        entity.setRol(usuarioRequestDTO.getRol() != null ? usuarioRequestDTO.getRol() : RolEnum.ALUMNO);
+        // Contraseña encriptada con BCrypt (nunca se guarda en claro).
+        entity.setPassword(passwordEncoder.encode(usuarioRequestDTO.getPassword()));
 
         return usuarioMapper.toResponse(usuarioRepository.save(entity));
     }
@@ -78,6 +93,22 @@ public class UsuarioService implements IUsuarioService {
                 });
 
         usuarioMapper.updateEntityFromDto(usuarioRequestDTO, entity);
+
+        // El mapper NO toca el password (lo ignora). Solo lo re-encriptamos si llega uno nuevo;
+        // si viene vacío/ausente conservamos el actual y NO re-encriptamos.
+        if (usuarioRequestDTO.getPassword() != null && !usuarioRequestDTO.getPassword().isBlank()) {
+            entity.setPassword(passwordEncoder.encode(usuarioRequestDTO.getPassword()));
+        }
+
+        return usuarioMapper.toResponse(usuarioRepository.save(entity));
+    }
+
+    @Transactional
+    @Override
+    public UsuarioResponseDTO cambiarRol(Long id, RolEnum nuevoRol) {
+        Usuario entity = usuarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + id));
+        entity.setRol(nuevoRol);
         return usuarioMapper.toResponse(usuarioRepository.save(entity));
     }
 

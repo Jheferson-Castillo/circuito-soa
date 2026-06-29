@@ -43,6 +43,8 @@ public class SecurityConfig {
                             "/swagger-ui/**",
                             "/swagger-ui.html",
                             "/v3/api-docs/**",
+                            // Observabilidad: Actuator (health/prometheus) lo lee Prometheus sin token
+                            "/actuator/**",
                             // Endpoint interno consumido por Reservas via el bus (sin token)
                             "/api/v1/pagos/*/info"
                     ).permitAll();

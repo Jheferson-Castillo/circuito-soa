@@ -1,5 +1,6 @@
 package com.spring.boot.carro.usuarios.presentation.dto.usuario;
 
+import com.spring.boot.carro.usuarios.persistence.enums.RolEnum;
 import com.spring.boot.carro.usuarios.persistence.enums.TipoDocumentoEnum;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -34,5 +35,14 @@ public class UsuarioRequestDTO {
     @Email(message = "Formato de correo inválido")
     @NotBlank(message = "El correo es obligatorio")
     private String email;
+
+    // Rol del usuario. Opcional: si no se envía, el servicio asigna ALUMNO por defecto.
+    private RolEnum rol;
+
+    // Contraseña en claro (se encripta con BCrypt en el servicio).
+    // Obligatoria al CREAR (se valida en UsuarioService.crear). En la actualización (PUT)
+    // puede omitirse para conservar la actual; si se envía, debe cumplir el mínimo de longitud.
+    @Size(min = 8, max = 72, message = "La contraseña debe tener al menos 8 caracteres")
+    private String password;
 
 }
