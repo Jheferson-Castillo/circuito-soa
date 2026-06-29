@@ -3,6 +3,7 @@ package com.spring.boot.carro.pagos.configuration.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,6 +31,8 @@ import java.util.List;
  */
 @Configuration
 @EnableWebSecurity
+// Habilita @PreAuthorize en los controllers (gestion de paquetes restringida a ADMIN).
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean

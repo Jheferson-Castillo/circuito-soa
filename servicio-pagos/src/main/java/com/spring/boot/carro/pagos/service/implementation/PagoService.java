@@ -75,8 +75,8 @@ public class PagoService implements IPagoService {
     @Override
     public PagoListadoResponseDTO crearPagoContado(PagoContadoRequestDTO dto) {
 
-        // El usuario vive en otro servicio: aqui solo guardamos su id (dto.usuarioId()).
-        // La validacion de existencia del usuario se hara via Camel (Fase 6).
+        // El usuario vive en otro servicio: aqui solo guardamos su id (dto.usuarioId()),
+        // que el ADMIN indica en la compra. La existencia del usuario se valida via Camel (Fase 6).
         Paquete paquete = paqueteRepository.findById(dto.paqueteId())
                 .orElseThrow(() -> new NotFoundException("Paquete no encontrado"));
 
@@ -100,7 +100,8 @@ public class PagoService implements IPagoService {
     @Override
     public PagoDetalleResponseDTO crearPagoCuotas(PagoCuotasRequestDTO dto) {
 
-        // El usuario vive en otro servicio: aqui solo guardamos su id (dto.usuarioId()).
+        // El usuario vive en otro servicio: aqui solo guardamos su id (dto.usuarioId()),
+        // que el ADMIN indica en la compra.
         Paquete paquete = paqueteRepository.findById(dto.paqueteId())
                 .orElseThrow(() -> new NotFoundException("Paquete no encontrado"));
 

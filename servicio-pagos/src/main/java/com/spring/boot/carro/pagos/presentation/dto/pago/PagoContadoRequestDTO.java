@@ -3,6 +3,7 @@ package com.spring.boot.carro.pagos.presentation.dto.pago;
 import com.spring.boot.carro.pagos.persistence.enums.MetodoPagoEnum;
 import jakarta.validation.constraints.NotNull;
 
+// El ADMIN registra la compra a nombre de un alumno: el usuarioId viaja en el cuerpo.
 public record PagoContadoRequestDTO(
         @NotNull(message = "El id del paquete es obligatorio") Long paqueteId,
         @NotNull(message = "El id del usuario es obligatorio") Long usuarioId,

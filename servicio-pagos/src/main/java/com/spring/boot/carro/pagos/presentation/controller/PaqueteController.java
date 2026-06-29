@@ -5,6 +5,7 @@ import com.spring.boot.carro.pagos.service.interfaces.IPaqueteService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -24,6 +25,8 @@ public class PaqueteController {
         return ResponseEntity.ok(paqueteService.listar());
     }
 
+    // Solo ADMIN gestiona paquetes (crear/editar/borrar). Los GET quedan para cualquier autenticado.
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<PaqueteDTO> update(@RequestBody @Valid PaqueteDTO paqueteDTO, @PathVariable Long id) {
         return ResponseEntity.ok(paqueteService.actualizar(id, paqueteDTO));
@@ -34,12 +37,14 @@ public class PaqueteController {
         return ResponseEntity.ok(paqueteService.obtenerPorId(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         paqueteService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<PaqueteDTO> create(@RequestBody @Valid PaqueteDTO paqueteDTO, UriComponentsBuilder uriComponentsBuilder) {
         PaqueteDTO creado = paqueteService.crear(paqueteDTO);

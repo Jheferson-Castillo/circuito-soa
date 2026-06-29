@@ -11,6 +11,7 @@ import com.spring.boot.carro.pagos.service.interfaces.IPagoService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -25,8 +26,11 @@ public class PagoController {
     @Autowired
     private IPagoService pagoService;
 
+    // Solo el ADMIN registra compras, a nombre del alumno indicado en el cuerpo (usuarioId).
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/contado")
-    public ResponseEntity<PagoListadoResponseDTO> createContado(@RequestBody @Valid PagoContadoRequestDTO pagoRequestDTO, UriComponentsBuilder uriComponentsBuilder) {
+    public ResponseEntity<PagoListadoResponseDTO> createContado(@RequestBody @Valid PagoContadoRequestDTO pagoRequestDTO,
+                                                                UriComponentsBuilder uriComponentsBuilder) {
         PagoListadoResponseDTO creado = pagoService.crearPagoContado(pagoRequestDTO);
 
         URI location = uriComponentsBuilder
@@ -37,8 +41,10 @@ public class PagoController {
         return ResponseEntity.created(location).body(creado);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/cuotas")
-    public ResponseEntity<PagoDetalleResponseDTO> createCuotas(@RequestBody @Valid PagoCuotasRequestDTO pagoRequestDTO, UriComponentsBuilder uriComponentsBuilder) {
+    public ResponseEntity<PagoDetalleResponseDTO> createCuotas(@RequestBody @Valid PagoCuotasRequestDTO pagoRequestDTO,
+                                                               UriComponentsBuilder uriComponentsBuilder) {
         PagoDetalleResponseDTO creado = pagoService.crearPagoCuotas(pagoRequestDTO);
 
         URI location = uriComponentsBuilder

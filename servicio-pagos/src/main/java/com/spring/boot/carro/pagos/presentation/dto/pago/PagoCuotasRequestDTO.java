@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
+// El ADMIN registra la compra a nombre de un alumno: el usuarioId viaja en el cuerpo.
 public record PagoCuotasRequestDTO(
         @NotNull(message = "El id del paquete es obligatorio") Long paqueteId,
         @NotNull(message = "El id del usuario es obligatorio") Long usuarioId,

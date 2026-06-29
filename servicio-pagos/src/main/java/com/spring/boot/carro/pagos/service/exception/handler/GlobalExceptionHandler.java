@@ -4,7 +4,9 @@ import com.spring.boot.carro.pagos.presentation.dto.ErrorDetailDTO;
 import com.spring.boot.carro.pagos.service.exception.BusinessException;
 import com.spring.boot.carro.pagos.service.exception.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,6 +16,19 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // @PreAuthorize denegado (p. ej. un no-ADMIN intenta gestionar paquetes) -> 403 Forbidden.
+    // Sin este handler, el catch-all de Exception devolveria 400 y enmascararia el 403.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorDetailDTO> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        ErrorDetailDTO errorDetailDTO = new ErrorDetailDTO(
+                "No tienes permisos para realizar esta acción",
+                "FORBIDDEN - ACCESO_DENEGADO",
+                request.getRequestURI(),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDetailDTO);
+    }
 
     //Validaciones con @Valid
     @ExceptionHandler(MethodArgumentNotValidException.class)
