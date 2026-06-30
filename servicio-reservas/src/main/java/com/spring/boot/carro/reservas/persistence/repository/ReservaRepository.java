@@ -17,6 +17,9 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     List<Reserva> findByIdPago(Long idPago);
 
+    // Agenda del instructor: sus reservas asignadas, ordenadas por fecha (las próximas primero).
+    List<Reserva> findByIdInstructorOrderByFechaReservaAsc(Long idInstructor);
+
     /**
      * Cruce de horario para el MISMO pago (paquete).
      * NOTA SOA: en el monolito esto era por usuario (r.pago.usuario.id). Como el usuario
@@ -66,7 +69,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
             "r.minutosReservados AS minutosReservados " +
             "FROM Reserva r " +
             "WHERE r.activo = true " +
-            "AND r.estado IN (RESERVADO, EN_PROGRESO) " +
+            "AND r.estado IN ('RESERVADO', 'EN_PROGRESO') " +
             "AND (" +
             "     (:vehiculoId IS NOT NULL AND r.vehiculo.id = :vehiculoId) " +
             "     OR (:idPago IS NOT NULL AND r.idPago = :idPago)" +

@@ -26,6 +26,12 @@ public class Reserva {
     @Column(name = "id_pago", nullable = false)
     private Long idPago;
 
+    // El Instructor es un Usuario (rol INSTRUCTOR) que vive en el servicio de Usuarios: solo guardamos
+    // su id (sin relacion JPA cross-servicio, igual que idPago/idUsuario). Nullable: una reserva puede
+    // no tener instructor asignado al inicio; el ADMIN lo asigna despues.
+    @Column(name = "id_instructor")
+    private Long idInstructor;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_vehiculo", nullable = false,
             foreignKey = @ForeignKey(name = "fk_reserva_vehiculo"))

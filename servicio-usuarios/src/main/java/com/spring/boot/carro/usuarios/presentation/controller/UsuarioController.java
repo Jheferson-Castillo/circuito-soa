@@ -2,6 +2,7 @@ package com.spring.boot.carro.usuarios.presentation.controller;
 
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.CambiarRolRequestDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.CargarSaldoRequestDTO;
+import com.spring.boot.carro.usuarios.presentation.dto.usuario.DatosBasicosUsuarioDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.SaldoResponseDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioRequestDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioResponseDTO;
@@ -37,6 +38,13 @@ public class UsuarioController {
     @GetMapping("/{id}")
     public ResponseEntity<UsuarioResponseDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(usuarioService.obtenerPorId(id));
+    }
+
+    // Endpoint interno: datos basicos del usuario para llamadas inter-servicio (lo consume
+    // Reservas via el bus, p. ej. el instructor viendo a sus alumnos). Abierto como /saldo.
+    @GetMapping("/{id}/datos-basicos")
+    public ResponseEntity<DatosBasicosUsuarioDTO> obtenerDatosBasicos(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.obtenerDatosBasicos(id));
     }
 
     // Cambiar el rol de un usuario. Solo un ADMIN puede hacerlo (@PreAuthorize -> 403 si no lo es).

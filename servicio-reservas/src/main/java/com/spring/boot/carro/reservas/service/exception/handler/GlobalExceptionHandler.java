@@ -4,7 +4,9 @@ import com.spring.boot.carro.reservas.presentation.dto.ErrorDetailDTO;
 import com.spring.boot.carro.reservas.service.exception.BusinessException;
 import com.spring.boot.carro.reservas.service.exception.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,6 +16,25 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // @PreAuthorize denegado (p. ej. un no-ADMIN intenta asignar instructor) -> 403 Forbidden.
+    // Sin este handler, el catch-all de Exception devolveria 400 y enmascararia el 403.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorDetailDTO> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        // Las denegaciones de @PreAuthorize traen "Access Denied": las mostramos con el mensaje generico.
+        // Si la excepcion trae un mensaje propio (p. ej. control de propiedad de la reserva), lo respetamos.
+        String mensaje = ex.getMessage();
+        if (mensaje == null || mensaje.isBlank() || mensaje.equalsIgnoreCase("Access Denied")) {
+            mensaje = "No tienes permisos para realizar esta acción";
+        }
+        ErrorDetailDTO errorDetailDTO = new ErrorDetailDTO(
+                mensaje,
+                "FORBIDDEN - ACCESO_DENEGADO",
+                request.getRequestURI(),
+                List.of()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDetailDTO);
+    }
 
     //Validaciones con @Valid
     @ExceptionHandler(MethodArgumentNotValidException.class)

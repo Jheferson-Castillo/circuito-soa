@@ -1,6 +1,7 @@
 package com.spring.boot.carro.usuarios.service.interfaces;
 
 import com.spring.boot.carro.usuarios.persistence.enums.RolEnum;
+import com.spring.boot.carro.usuarios.presentation.dto.usuario.DatosBasicosUsuarioDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.SaldoResponseDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioRequestDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioResponseDTO;
@@ -12,6 +13,9 @@ public interface IUsuarioService {
     public List<UsuarioResponseDTO> listar();
 
     public UsuarioResponseDTO obtenerPorId(Long id);
+
+    // Datos basicos (sin password ni rol) para llamadas inter-servicio.
+    public DatosBasicosUsuarioDTO obtenerDatosBasicos(Long id);
 
     public UsuarioResponseDTO crear(UsuarioRequestDTO usuarioRequestDTO);
 

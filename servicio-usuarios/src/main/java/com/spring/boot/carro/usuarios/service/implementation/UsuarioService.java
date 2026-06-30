@@ -3,6 +3,7 @@ package com.spring.boot.carro.usuarios.service.implementation;
 import com.spring.boot.carro.usuarios.persistence.entity.Usuario;
 import com.spring.boot.carro.usuarios.persistence.enums.RolEnum;
 import com.spring.boot.carro.usuarios.persistence.repository.UsuarioRepository;
+import com.spring.boot.carro.usuarios.presentation.dto.usuario.DatosBasicosUsuarioDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.SaldoResponseDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioRequestDTO;
 import com.spring.boot.carro.usuarios.presentation.dto.usuario.UsuarioResponseDTO;
@@ -44,6 +45,20 @@ public class UsuarioService implements IUsuarioService {
         Usuario entity = usuarioRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + id));
         return usuarioMapper.toResponse(entity);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public DatosBasicosUsuarioDTO obtenerDatosBasicos(Long id) {
+        Usuario entity = usuarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + id));
+        return new DatosBasicosUsuarioDTO(
+                entity.getId(),
+                entity.getNombre(),
+                entity.getApellido(),
+                entity.getEmail(),
+                entity.getTelefono()
+        );
     }
 
     @Transactional

@@ -3,6 +3,7 @@ package com.spring.boot.carro.reservas.configuration.app;
 import org.quartz.spi.JobFactory;
 import org.quartz.spi.TriggerFiredBundle;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.boot.autoconfigure.quartz.QuartzProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +12,7 @@ import org.springframework.scheduling.quartz.SchedulerFactoryBean;
 import org.springframework.scheduling.quartz.SpringBeanJobFactory;
 
 import javax.sql.DataSource;
+import java.util.Properties;
 
 @Configuration
 public class QuartzConfig {
@@ -31,10 +33,18 @@ public class QuartzConfig {
     }
 
     @Bean
-    public SchedulerFactoryBean schedulerFactoryBean(JobFactory jobFactory) {
+    public SchedulerFactoryBean schedulerFactoryBean(JobFactory jobFactory, QuartzProperties quartzProperties) {
         SchedulerFactoryBean factory = new SchedulerFactoryBean();
         factory.setDataSource(dataSource);
         factory.setJobFactory(jobFactory); // IMPORTANTE: Le asignamos la fábrica inteligente
+
+        // Al declarar manualmente este SchedulerFactoryBean, la autoconfiguracion de Quartz se desactiva
+        // y las propiedades spring.quartz.properties.* NO se aplican solas. Las cargamos aqui para que
+        // SI se use el PostgreSQLDelegate (driverDelegateClass) y no el StdJDBCDelegate por defecto,
+        // que no sabe leer los BYTEA de las tablas QRTZ_.
+        Properties props = new Properties();
+        props.putAll(quartzProperties.getProperties());
+        factory.setQuartzProperties(props);
 
         factory.setSchedulerName("ReservaScheduler");
         factory.setOverwriteExistingJobs(true);

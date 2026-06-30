@@ -12,6 +12,7 @@ import com.spring.boot.carro.reservas.presentation.dto.reserva.ReservaMinutosDTO
 import com.spring.boot.carro.reservas.presentation.dto.reserva.*;
 import com.spring.boot.carro.reservas.service.client.PagoClienteGateway;
 import com.spring.boot.carro.reservas.service.client.PagoInfoDTO;
+import com.spring.boot.carro.reservas.service.client.UsuarioDatosClient;
 import com.spring.boot.carro.reservas.service.client.UsuarioSaldoClient;
 import com.spring.boot.carro.reservas.service.exception.BusinessException;
 import com.spring.boot.carro.reservas.service.exception.NotFoundException;
@@ -20,13 +21,18 @@ import com.spring.boot.carro.reservas.service.scheduler.ReservaJobSchedulerServi
 import com.spring.boot.carro.reservas.util.mapper.ReservaMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 
 @Slf4j
@@ -39,6 +45,8 @@ public class ReservaService implements IReservaService {
     private final PagoClienteGateway pagoGateway;
     // Saldo del usuario: se consulta al servicio de Usuarios via el bus (flujo B).
     private final UsuarioSaldoClient usuarioSaldoClient;
+    // Datos basicos del alumno: se consultan a Usuarios via el bus (propagando el token).
+    private final UsuarioDatosClient usuarioDatosClient;
     private final ReservaMapper reservaMapper;
     private final VehiculoRepository vehiculoRepository;
     private final EventoReservaRepository eventoReservaRepository;
@@ -57,6 +65,169 @@ public class ReservaService implements IReservaService {
     private final int MAX_RESERVA_MINUTOS = 300;    // máximo 5 horas
     private final int MIN_ANTICIPACION_MINUTOS = 1;//eran 5
     private final int MAX_ANTICIPACION_DIAS = 20;
+
+    /**
+     * El ADMIN asigna (o reasigna) el instructor de una reserva. El instructor es un Usuario
+     * (rol INSTRUCTOR) que vive en el servicio de Usuarios; aqui solo guardamos su id.
+     */
+    @Transactional
+    @Override
+    public ReservaResponseDTO asignarInstructor(Long reservaId, Long idInstructor) {
+        Reserva reserva = reservaRepository.findById(reservaId)
+                .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + RESERVA + " con id: " + reservaId));
+        reserva.setIdInstructor(idInstructor);
+        return reservaMapper.toResponse(reservaRepository.save(reserva));
+    }
+
+    /**
+     * Devuelve la agenda del instructor autenticado: solo las reservas que tiene asignadas,
+     * ordenadas por fecha (las próximas primero). El idInstructor proviene del claim "uid".
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public List<ReservaResponseDTO> misReservas(Long idInstructor) {
+        return reservaMapper.toResponseList(
+                reservaRepository.findByIdInstructorOrderByFechaReservaAsc(idInstructor));
+    }
+
+    /**
+     * El instructor autenticado finaliza una clase SUYA (estado -> FINALIZADO).
+     * - Control de propiedad: el idInstructor de la reserva debe coincidir con el uid del token.
+     * - No se puede finalizar una reserva ya FINALIZADO o CANCELADO.
+     */
+    @Transactional
+    @Override
+    public ReservaResponseDTO finalizarReserva(Long reservaId, Long idInstructor) {
+        Reserva reserva = reservaRepository.findById(reservaId)
+                .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + RESERVA + " con id: " + reservaId));
+
+        // Control de propiedad: solo el instructor asignado a la reserva puede finalizarla.
+        if (reserva.getIdInstructor() == null || !reserva.getIdInstructor().equals(idInstructor)) {
+            throw new AccessDeniedException("No puedes finalizar una clase que no te fue asignada");
+        }
+
+        if (reserva.getEstado() == EstadoReservaEnum.FINALIZADO) {
+            throw new BusinessException("La reserva ya está finalizada.");
+        }
+        if (reserva.getEstado() == EstadoReservaEnum.CANCELADO) {
+            throw new BusinessException("No se puede finalizar una reserva cancelada.");
+        }
+
+        reserva.setEstado(EstadoReservaEnum.FINALIZADO);
+        return reservaMapper.toResponse(reservaRepository.save(reserva));
+    }
+
+    /**
+     * Alumnos del instructor autenticado: toma sus reservas asignadas, las agrupa por alumno
+     * (resolviendo idPago -> idUsuario via Pagos) y enriquece cada alumno con sus datos basicos
+     * traidos de Usuarios (via bus, propagando el token). Degrada con gracia si algun servicio
+     * remoto no responde: muestra el idUsuario aunque falten los datos personales.
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public List<AlumnoConClasesDTO> misAlumnos(Long idInstructor, String bearerToken) {
+        List<Reserva> reservas = reservaRepository.findByIdInstructorOrderByFechaReservaAsc(idInstructor);
+
+        // Agrupar por alumno (idUsuario) conservando el orden por fecha (LinkedHashMap).
+        Map<Long, List<Reserva>> reservasPorAlumno = new LinkedHashMap<>();
+        Map<Long, Long> cachePagoUsuario = new HashMap<>();   // evita reconsultar el mismo pago
+        for (Reserva r : reservas) {
+            Long idUsuario = cachePagoUsuario.get(r.getIdPago());
+            if (idUsuario == null) {
+                idUsuario = resolverIdUsuario(r.getIdPago());
+                if (idUsuario == null) {
+                    continue;   // no se pudo atribuir el alumno (Pagos no respondio): se omite
+                }
+                cachePagoUsuario.put(r.getIdPago(), idUsuario);
+            }
+            reservasPorAlumno.computeIfAbsent(idUsuario, k -> new ArrayList<>()).add(r);
+        }
+
+        // Para cada alumno: enriquecer con sus datos basicos (Usuarios via bus) y mapear sus clases.
+        List<AlumnoConClasesDTO> alumnos = new ArrayList<>();
+        for (Map.Entry<Long, List<Reserva>> entry : reservasPorAlumno.entrySet()) {
+            Long idUsuario = entry.getKey();
+            List<ReservaResponseDTO> clases = reservaMapper.toResponseList(entry.getValue());
+            UsuarioDatosClient.DatosBasicosDTO datos =
+                    usuarioDatosClient.obtenerDatosBasicos(idUsuario, bearerToken);
+            if (datos != null) {
+                alumnos.add(new AlumnoConClasesDTO(idUsuario, datos.nombre(), datos.apellido(),
+                        datos.email(), datos.telefono(), clases));
+            } else {
+                // Degradacion: Usuarios no respondio -> solo id y clases.
+                alumnos.add(new AlumnoConClasesDTO(idUsuario, null, null, null, null, clases));
+            }
+        }
+        return alumnos;
+    }
+
+    // Resuelve el alumno (idUsuario) a partir del idPago preguntando a Pagos (via bus).
+    // Degrada con gracia: devuelve null si Pagos/bus no responde.
+    private Long resolverIdUsuario(Long idPago) {
+        try {
+            PagoInfoDTO info = pagoGateway.obtenerPagoInfo(idPago);
+            return info != null ? info.idUsuario() : null;
+        } catch (Exception e) {
+            log.warn("mis-alumnos: no se pudo resolver el alumno del pago {} ({})", idPago, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Incidencias (EventoReserva tipo INCIDENCIA) de una reserva, con alcance segun el rol del token:
+     *  - ADMIN: cualquier reserva.
+     *  - INSTRUCTOR: solo si la reserva le fue asignada (idInstructor == uid).
+     *  - ALUMNO: solo si la reserva es suya (idUsuario dueño == uid, resuelto idPago->idUsuario via Pagos).
+     * Si no hay incidencias, devuelve lista vacia.
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public List<IncidenciaDTO> verIncidencias(Long reservaId, Long uid, String rol) {
+        Reserva reserva = reservaRepository.findById(reservaId)
+                .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + RESERVA + " con id: " + reservaId));
+
+        verificarAccesoIncidencias(reserva, uid, rol);
+
+        return eventoReservaRepository
+                .findByReservaIdAndTipoOrderByFechaRegistroAsc(reservaId, TipoEventoReservaEnum.INCIDENCIA)
+                .stream()
+                .map(this::toIncidenciaDTO)
+                .toList();
+    }
+
+    // Aplica el control de acceso por rol antes de devolver las incidencias.
+    private void verificarAccesoIncidencias(Reserva reserva, Long uid, String rol) {
+        if ("ADMIN".equals(rol)) {
+            return; // el admin ve incidencias de cualquier reserva
+        }
+        if ("INSTRUCTOR".equals(rol)) {
+            if (reserva.getIdInstructor() == null || !reserva.getIdInstructor().equals(uid)) {
+                throw new AccessDeniedException("No puedes ver incidencias de una clase que no te fue asignada");
+            }
+            return;
+        }
+        if ("ALUMNO".equals(rol)) {
+            Long idUsuario = resolverIdUsuario(reserva.getIdPago());
+            if (idUsuario == null || !idUsuario.equals(uid)) {
+                throw new AccessDeniedException("No puedes ver incidencias de una clase que no es tuya");
+            }
+            return;
+        }
+        // Rol no contemplado: denegar por defecto.
+        throw new AccessDeniedException("No tienes permisos para ver estas incidencias");
+    }
+
+    private IncidenciaDTO toIncidenciaDTO(EventoReserva evento) {
+        return IncidenciaDTO.builder()
+                .minutosReservadosAntes(evento.getMinutosReservadosAntes())
+                .minutosUsados(evento.getMinutosUsados())
+                .minutosDevueltos(evento.getMinutosDevueltos())
+                .minutosAfectados(evento.getMinutosAfectados())
+                .detalle(evento.getDetalle())
+                .fechaRegistro(evento.getFechaRegistro())
+                .tipo(evento.getTipo())
+                .build();
+    }
 
     /**
      * Reglas de negocio:
@@ -269,9 +440,14 @@ public class ReservaService implements IReservaService {
      */
     @Transactional
     @Override
-    public ReservaResponseDTO registrarIncidencia(Long reservaId, IncidenciaRequestDTO incidenciaRequestDTO) {
+    public ReservaResponseDTO registrarIncidencia(Long reservaId, IncidenciaRequestDTO incidenciaRequestDTO, Long idInstructor) {
 
         Reserva reserva = obtenerReserva(reservaId);
+
+        // Control de propiedad: solo el instructor asignado a la reserva puede registrar incidencias.
+        if (reserva.getIdInstructor() == null || !reserva.getIdInstructor().equals(idInstructor)) {
+            throw new AccessDeniedException("No puedes registrar una incidencia en una clase que no te fue asignada");
+        }
 
         if (reserva.getEstado() != EstadoReservaEnum.EN_PROGRESO) {
             throw new BusinessException("Solo reservas EN_PROGRESO pueden registrar incidencias.");

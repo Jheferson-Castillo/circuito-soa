@@ -53,7 +53,9 @@ public class SecurityConfig {
                             "/actuator/**",
                             // Endpoints internos de saldo (los consumen Pagos/Reservas via el bus)
                             "/api/v1/usuarios/*/saldo",
-                            "/api/v1/usuarios/*/saldo/**"
+                            "/api/v1/usuarios/*/saldo/**",
+                            // Endpoint interno de datos basicos (lo consume Reservas via el bus)
+                            "/api/v1/usuarios/*/datos-basicos"
                     ).permitAll();
                     request.anyRequest().authenticated();
                 })
